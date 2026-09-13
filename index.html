@@ -58,7 +58,12 @@
 
   .thumb{position:relative;aspect-ratio:4/3;background:var(--tile);overflow:hidden;display:block}
   .thumb img{width:100%;height:100%;object-fit:cover;display:block}
-  .thumb .ph{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:44px;font-weight:800;letter-spacing:-.05em}
+  .thumb .ph{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    padding:16px;text-align:center;color:#fff;
+    font-size:22px;font-weight:700;letter-spacing:-.03em;line-height:1.25;
+    word-break:keep-all
+  }
   .badge{position:absolute;left:10px;top:10px;font-size:11px;padding:4px 8px;border-radius:999px;background:#fff;color:var(--ink);font-weight:600}
   .badge.hot{background:var(--hot);color:#fff}
 
@@ -70,6 +75,14 @@
   .acts a{font-size:13px;padding:6px 11px;border-radius:8px;border:1px solid var(--line);white-space:nowrap}
   .acts a.go{background:var(--ink);color:#fff;border-color:var(--ink)}
   .acts a:hover{border-color:var(--ink)}
+
+  /* ── 목록을 못 읽었을 때 ── */
+  .notice{
+    border:1px dashed var(--line);border-radius:14px;padding:28px 22px;
+    color:var(--mute);font-size:15px;line-height:1.7
+  }
+  .notice b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+  .notice code{background:var(--tile);padding:2px 6px;border-radius:5px;font-size:13.5px}
 
   /* ── 소개 줄 ── */
   .me{margin-top:48px;padding:26px 0;border-top:1px solid var(--ink);display:grid;grid-template-columns:1fr 1fr;gap:40px}
@@ -87,6 +100,7 @@
   @media (max-width:720px){
     .grid{grid-template-columns:repeat(2,1fr);gap:10px}
     .tile.wide{grid-column:span 2}
+    .thumb .ph{font-size:18px}
     .me{grid-template-columns:1fr;gap:24px}
     nav{overflow-x:auto}
     nav a{padding:8px}
@@ -127,11 +141,12 @@
         <button data-f="post" aria-pressed="false">글</button>
         <button data-f="research" aria-pressed="false">연구</button>
       </div>
-      <div class="sortnote" id="sortnote">많이 열어본 순</div>
+      <div class="sortnote" id="sortnote">최근 순</div>
     </div>
   </div>
 
   <section class="grid" id="grid" aria-label="작업물"></section>
+  <div id="notice" hidden></div>
 
   <section class="me">
     <div>
@@ -160,16 +175,66 @@
   </div>
 </footer>
 
-<script src="works.js"></script>
+<script src="works.js" onerror="window.__worksFailed=true"></script>
 <script>
 (function(){
   const KIND = {app:"웹앱", music:"음악", video:"영상", post:"글", research:"연구"};
   const OPEN = {app:"열기", music:"듣기", video:"보기", post:"읽기", research:"읽기"};
-  const grid = document.getElementById("grid");
-  const note = document.getElementById("sortnote");
-  const S = window.STATS || {url:"",key:""};
+  const grid   = document.getElementById("grid");
+  const notice = document.getElementById("notice");
+  const note   = document.getElementById("sortnote");
+
+  /* ── 목록을 못 읽었을 때: 백지 대신 안내 ── */
+  function fail(reason){
+    grid.hidden = true;
+    note.hidden = true;
+    notice.hidden = false;
+    notice.className = "notice";
+    notice.innerHTML =
+      "<b>작업물 목록을 불러오지 못했습니다.</b>" +
+      "<code>works.js</code> 파일에 문법 오류가 있거나 파일을 찾지 못했습니다. " +
+      "따옴표·쉼표가 빠지지 않았는지 확인해 주세요." +
+      (reason ? "<br><br><code>" + String(reason).slice(0,200) + "</code>" : "");
+  }
+
+  if (window.__worksFailed) return fail("works.js 파일을 찾을 수 없습니다");
+  if (!Array.isArray(window.WORKS) || window.WORKS.length === 0) {
+    return fail("window.WORKS 목록이 비어 있습니다");
+  }
+
+  const S = window.STATS || {url:"", key:""};
   const live = !!(S.url && S.key);
   let counts = {};
+
+  /* ── 썸네일: 경로가 틀리면 색 블록으로 되돌림 ── */
+  function makeThumb(w){
+    const box = document.createElement("a");
+    box.className = "thumb";
+    box.href = w.url;
+    box.setAttribute("aria-label", w.title + " 열기");
+    box.dataset.slug = w.slug;
+    if (/^https?:/.test(w.url)) { box.target = "_blank"; box.rel = "noopener"; }
+
+    function block(){
+      const ph = document.createElement("div");
+      ph.className = "ph";
+      ph.style.background = w.color || "#333";
+      ph.textContent = w.title;
+      box.appendChild(ph);
+    }
+
+    if (w.img) {
+      const im = document.createElement("img");
+      im.src = w.img;
+      im.alt = w.title;
+      im.loading = "lazy";
+      im.addEventListener("error", ()=>{ im.remove(); block(); });
+      box.appendChild(im);
+    } else {
+      block();
+    }
+    return box;
+  }
 
   function render(){
     const list = window.WORKS.slice().sort((a,b)=>{
@@ -184,24 +249,30 @@
       el.className = "tile" + (window.FEATURE_TOP && i===0 ? " wide" : "");
       el.dataset.kind = w.kind;
 
-      const thumb = w.img
-        ? `<img src="${w.img}" alt="${w.title}" loading="lazy">`
-        : `<div class="ph" style="background:${w.color}">${w.title.slice(0,1)}</div>`;
-      const badge = w.pin ? `<span class="badge">새 작업</span>`
-                  : (live && i<3 && (counts[w.slug]||0)>0 ? `<span class="badge hot">인기</span>` : "");
-      const ext = /^https?:/.test(w.url) ? ' target="_blank" rel="noopener"' : "";
+      const thumb = makeThumb(w);
+      if (w.pin) {
+        const b = document.createElement("span");
+        b.className = "badge"; b.textContent = "새 작업";
+        thumb.appendChild(b);
+      } else if (live && i < 3 && (counts[w.slug]||0) > 0) {
+        const b = document.createElement("span");
+        b.className = "badge hot"; b.textContent = "인기";
+        thumb.appendChild(b);
+      }
+      el.appendChild(thumb);
 
-      el.innerHTML =
-        `<a class="thumb" href="${w.url}"${ext} data-slug="${w.slug}" aria-label="${w.title} 열기">${thumb}${badge}</a>` +
-        `<div class="body">` +
-          `<div class="kindtag">${KIND[w.kind]||""}</div>` +
-          `<h3>${w.title}</h3>` +
-          `<p>${w.desc||""}</p>` +
-          `<div class="acts">` +
-            `<a class="go" href="${w.url}"${ext} data-slug="${w.slug}">${OPEN[w.kind]||"열기"}</a>` +
-            (w.story ? `<a href="${w.story}">만든 이야기</a>` : "") +
-          `</div>` +
+      const ext = /^https?:/.test(w.url) ? ' target="_blank" rel="noopener"' : "";
+      const body = document.createElement("div");
+      body.className = "body";
+      body.innerHTML =
+        `<div class="kindtag">${KIND[w.kind]||""}</div>` +
+        `<h3>${w.title}</h3>` +
+        `<p>${w.desc||""}</p>` +
+        `<div class="acts">` +
+          `<a class="go" href="${w.url}"${ext} data-slug="${w.slug}">${OPEN[w.kind]||"열기"}</a>` +
+          (w.story ? `<a href="${w.story}">만든 이야기</a>` : "") +
         `</div>`;
+      el.appendChild(body);
       grid.appendChild(el);
     });
     applyFilter(document.querySelector('.filters button[aria-pressed="true"]').dataset.f);
@@ -223,24 +294,27 @@
 
   /* 클릭 기록: 링크 이동을 막지 않고 뒤에서 조용히 보냅니다 */
   grid.addEventListener("click", e=>{
-    const a = e.target.closest("a[data-slug]");
+    const a = e.target.closest("[data-slug]");
     if (!a || !live) return;
-    const url = S.url + "/rest/v1/rpc/bump_click";
-    const body = JSON.stringify({p_slug: a.dataset.slug});
-    fetch(url, {method:"POST", keepalive:true, body,
+    fetch(S.url + "/rest/v1/rpc/bump_click", {
+      method:"POST", keepalive:true,
+      body: JSON.stringify({p_slug: a.dataset.slug}),
       headers:{"Content-Type":"application/json", apikey:S.key, Authorization:"Bearer "+S.key}
     }).catch(()=>{});
   });
 
-  /* 클릭 수 불러와서 정렬 */
-  if (live){
-    fetch(S.url + "/rest/v1/work_stats?select=slug,clicks", {headers:{apikey:S.key, Authorization:"Bearer "+S.key}})
-      .then(r=>r.json())
-      .then(rows=>{ if(Array.isArray(rows)) rows.forEach(r=>counts[r.slug]=r.clicks); render(); })
-      .catch(()=>{ note.textContent="최근 순"; render(); });
-  } else {
-    note.textContent = "최근 순";
-    render();
+  try {
+    if (live){
+      note.textContent = "많이 열어본 순";
+      fetch(S.url + "/rest/v1/work_stats?select=slug,clicks", {headers:{apikey:S.key, Authorization:"Bearer "+S.key}})
+        .then(r=>r.json())
+        .then(rows=>{ if (Array.isArray(rows)) rows.forEach(r=>counts[r.slug]=r.clicks); render(); })
+        .catch(()=>{ note.textContent="최근 순"; render(); });
+    } else {
+      render();
+    }
+  } catch(err){
+    fail(err && err.message);
   }
 })();
 </script>
