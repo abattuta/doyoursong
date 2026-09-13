@@ -32,7 +32,7 @@ window.WORKS = [
     desc: "구구단을 먹고 자라는 다마고치.",
     url: "https://gugumonster.pages.dev/",
     story: "/blog/2026/gugumonster/",
-    img: "",
+    img: "img: "/thumbs/bookfly.png",",
     color: "#d94726",
   },
   {
