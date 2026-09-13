@@ -8,7 +8,9 @@
    desc  : 한 줄 설명
    url   : 열기 버튼이 가는 곳
    story : '만든 이야기' 글 주소 (없으면 "")
-   img   : 썸네일 경로 (없으면 color 색 블록이 대신 나옵니다)
+   img   : 썸네일 경로. 따옴표 안에는 경로만 적습니다.
+           올바른 예)  img: "/thumbs/bookfly.png",
+           비울 때)    img: "",
    color : 썸네일 없을 때 쓸 색
    pin   : true면 클릭 수와 상관없이 항상 맨 앞 (새로 만든 것 띄울 때)
    ============================================================ */
@@ -21,7 +23,7 @@ window.WORKS = [
     desc: "완독한 책이 나비가 되어 반 전체 나무에 모입니다.",
     url: "https://bookfly.pages.dev/",
     story: "/blog/2026/bookfly-classroom/",
-    img: "",
+    img: "/thumbs/bookfly.png",
     color: "#1f6f4f",
     pin: true,
   },
@@ -32,7 +34,7 @@ window.WORKS = [
     desc: "구구단을 먹고 자라는 다마고치.",
     url: "https://gugumonster.pages.dev/",
     story: "/blog/2026/gugumonster/",
-    img: "img: "/thumbs/bookfly.png",",
+    img: "",
     color: "#d94726",
   },
   {
